@@ -151,7 +151,7 @@ function update_table(data)
             selected_asset_price = selected_asset_data['quote']['USD']['price'];
             selected_asset_metadata = window.metadata['metadata'][selected_asset_data['id']];
             selected_asset_logo = selected_asset_metadata['logo'];
-            selected_asset_rank = counter;
+            selected_asset_rank = counter+1;
             update_description(selected_asset_data['id']);
             break;
         }
