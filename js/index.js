@@ -11,11 +11,7 @@ window.default_selected_asset = 'NANO';
 window.default_selected_asset_id = 1567;
 window.first_load = true;
 
-// debugging in prod ... its cool
-$('#tmp-header').text(document.referrer);
-///
-
-if (document.referrer == 'https://api.marketcapcompare.com') {
+if (document.referrer == 'https://api.marketcapcompare.com/') {
     $('#scrape-header').addClass('d-flex').removeClass('d-none');
 }
 
