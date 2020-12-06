@@ -12,7 +12,7 @@ window.default_selected_asset_id = 1567;
 window.first_load = true;
 
 // debugging in prod ... its cool
-$('#tmp-header').text(documener.referrer);
+$('#tmp-header').text(document.referrer);
 ///
 
 if (document.referrer == 'https://api.marketcapcompare.com') {
