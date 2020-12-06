@@ -11,6 +11,10 @@ window.default_selected_asset = 'NANO';
 window.default_selected_asset_id = 1567;
 window.first_load = true;
 
+if (document.referrer == 'https://api.marketcapcompare.com') {
+    $('#scrape-header').addClass('d-flex').removeClass('d-none');
+}
+
 function isAlpha(str) {
     if (!str) return false;
 
