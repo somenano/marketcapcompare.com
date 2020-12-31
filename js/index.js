@@ -1,37 +1,16 @@
 "use strict"
 
 var socket = io.connect('https://api.marketcapcompare.com');
-socket.emit('subscribe_all');
-socket.on('data', handle_data);
-socket.on('metadata', handle_metadata);
+// var socket = io.connect('http://localhost:3000');
+socket.emit('subscribe_periodic');
+socket.on('periodic', handle_periodic);
 
-window.data = undefined;
-window.metadata = undefined;
+window.periodic = undefined;
 window.default_selected_asset = 'NANO';
-window.default_selected_asset_id = 1567;
 window.first_load = true;
 
 if (document.referrer == 'https://api.marketcapcompare.com/') {
     $('#scrape-header').addClass('d-flex').removeClass('d-none');
-}
-
-function isAlpha(str) {
-    if (!str) return false;
-
-    var code, i, len;
-  
-    for (i = 0, len = str.length; i < len; i++) {
-        code = str.charCodeAt(i);
-        if (!(code > 64 && code < 91) && // upper alpha (A-Z)
-            !(code > 96 && code < 123)) { // lower alpha (a-z)
-            return false;
-        }
-    }
-    return true;
-};
-
-function numberWithCommas(x) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function get_selected_asset()
@@ -39,9 +18,9 @@ function get_selected_asset()
     const url_string = window.location.href;
     const url = new URL(url_string);
     const unsanitized_asset = url.searchParams.get("asset");
-    if (unsanitized_asset === null && window.metadata['metadata'][window.default_selected_asset_id]) return window.default_selected_asset;
+    if (unsanitized_asset === null && window.periodic.metadata[window.default_selected_asset]) return window.default_selected_asset;
     const sanitized_asset = unsanitized_asset.replace(/[\W_]+/g,"");
-    if ((sanitized_asset=='' || sanitized_asset === undefined) && window.metadata['metadata'][window.default_selected_asset_id]) return window.default_selected_asset;
+    if ((sanitized_asset=='' || sanitized_asset === undefined) && window.periodic.metadata[window.default_selected_asset]) return window.default_selected_asset;
     return sanitized_asset;
 }
 
@@ -54,19 +33,18 @@ function update_selected_asset(asset)
     url.hash = '';
     // self.location=url.href;
     history.pushState('update_selected_asset', 'CompareMarketCap', url.href);
-    handle_data(window.data);
+    handle_periodic(window.periodic);
 }
 
 window.addEventListener('popstate', function (event) {
-    if (!window.first_load && window.data) handle_data(window.data);
+    if (!window.first_load && window.data) handle_periodic(window.periodic);
 }, false);
 
-function handle_data(data)
-{
-    // console.log(data);
-    window.data = data;
-    update_dropdown(data);
-    update_table(data);
+function handle_periodic(data) {
+    window.periodic = data;
+    update_dropdown();
+    update_mc_table();
+
     if (window.first_load) {
         const url = new URL(window.location.href);
         if (url.hash.length > 0) {
@@ -76,40 +54,31 @@ function handle_data(data)
     }
 }
 
-function handle_metadata(metadata)
+function update_description(symbol)
 {
-    // console.log(metadata);
-    window.metadata = metadata;
-}
-
-function update_description(asset_id)
-{
-    const selected_metadata = window.metadata['metadata'][asset_id];
+    const selected_metadata = window.periodic.metadata[symbol];
 //     let html = `
 // <hr width="50%">
 // <h5>`+selected_metadata['name']+` (`+ selected_metadata['symbol']+`)</h5>
 // <p>`+selected_metadata['description']+`</p>
 // `;
     let html = '';
-    if (selected_metadata['subreddit']) {
+    if (selected_metadata.subreddit) {
         html += `<p class="fs-0-7">Learn more on `+selected_metadata['name']+`'s subreddit: <a target="_new" href="https://reddit.com/r/`+selected_metadata['subreddit']+`">https://reddit.com/r/`+selected_metadata['subreddit']+`</a></p>`
     }
     $('#selected-asset-info').html(html);
 }
 
-function update_dropdown(data)
+function update_dropdown()
 {
     let asset_list = [];
-    for (let asset_data of data['data']) {
+    for (let symbol of get_symbols('symbol', true)) {
         asset_list.push({
-            name: asset_data['name'],
-            symbol: asset_data['symbol']
+            name: window.periodic.metadata[symbol].name,
+            symbol: symbol
         });
     }
 
-    // Sort alphabetically by name
-    asset_list.sort(function(a,b) {return (a.name.toUpperCase() > b.name.toUpperCase() ? 1 : -1);});
-    
     let selected_symbol = get_selected_asset();
 
     $('#crypto-select').empty();
@@ -122,66 +91,64 @@ function update_dropdown(data)
     
 }
 
-function update_table(data)
+function update_mc_table()
 {
-    if (window.metadata === undefined) {
-        console.error('No metadata, waiting and trying again...');
+    if (window.periodic === undefined) {
+        console.error('No data, waiting and trying again...');
         setTimeout(function() {
-            update_table(data);
+            update_mc_table();
             return;
         }, 1*1000);
         return;
     }
 
-    $('#message-container').text('Data current as of: '+ new Date(data.timestamp));
+    $('#message-container').text('Data current as of: '+ new Date(window.periodic.dtg));
 
-    let selected_asset = get_selected_asset();
+    let selected_asset_symbol = get_selected_asset();
 
-    let selected_asset_data_index = -1;
-    let selected_asset_data;
-    let selected_asset_name;
-    let selected_asset_market_cap;
-    let selected_asset_price;
-    let selected_asset_metadata;
-    let selected_asset_logo;
-    let selected_asset_rank;
-    let counter = 0;
-    for (let asset_data of data['data']) {
-        if (asset_data['symbol'] == selected_asset){
-            selected_asset_data_index = counter;
-            selected_asset_data = data['data'][selected_asset_data_index];
-            selected_asset_name = selected_asset_data['name'];
-            selected_asset_market_cap = selected_asset_data['quote']['USD']['market_cap'];
-            selected_asset_price = selected_asset_data['quote']['USD']['price'];
-            selected_asset_metadata = window.metadata['metadata'][selected_asset_data['id']];
-            selected_asset_logo = selected_asset_metadata['logo'];
-            selected_asset_rank = counter+1;
-            update_description(selected_asset_data['id']);
-            break;
-        }
-        counter += 1;
-    }
+    let selected_asset_data = window.periodic.data[selected_asset_symbol];
 
-    if (selected_asset_data_index < 0) {
-        $('#message-container').text('Asset "'+selected_asset+'" not found in Top 100');
+    let selected_asset_name = undefined;
+    let selected_asset_market_cap = undefined;
+    let selected_asset_price = undefined;
+    let selected_asset_metadata = undefined;
+    let selected_asset_logo = undefined;
+    let selected_asset_rank = undefined;
+    let selected_asset_subreddit = undefined;
+
+    if (selected_asset_data === undefined) {
+        $('#message-container').text('Asset "'+selected_asset_symbol+'" not found in Top 100');
+    } else {
+        selected_asset_market_cap = Number.parseFloat(selected_asset_data.marketcap);
+        selected_asset_price = Number.parseFloat(selected_asset_data.price);
+        selected_asset_metadata = window.periodic.metadata[selected_asset_symbol];
+        selected_asset_name = selected_asset_metadata.name;
+        selected_asset_logo = selected_asset_metadata.logo;
+        selected_asset_rank = (get_symbols('marketcap', false).indexOf(selected_asset_symbol))+1;
+        selected_asset_subreddit = (selected_asset_metadata.subreddit ? selected_asset_metadata.subreddit.toLowerCase() : '');
+        update_description(selected_asset_data.symbol);
     }
 
     // console.log(selected_asset_data);
 
-    counter = 1;
     let html = '';
     html += '<div class="row"><table class="table table-hover w-auto">';
     html += '<tbody>';
-    for (let asset_data of data['data']) {
-        const market_cap = Number.parseFloat(asset_data['quote']['USD']['market_cap']);
-        const price = Number.parseFloat(asset_data['quote']['USD']['price']);
-        const price_change_1h = Number.parseFloat(asset_data['quote']['USD']['percent_change_1h']);
-        const price_change_24h = Number.parseFloat(asset_data['quote']['USD']['percent_change_24h']);
-        const price_change_7d = Number.parseFloat(asset_data['quote']['USD']['percent_change_7d']);
-        const name = asset_data['name'];
-        const symbol = asset_data['symbol'];
-        const metadata = window.metadata['metadata'][asset_data['id']];
-        const logo = metadata['logo'];
+    let asset_rank = 0;
+    for (let symbol of get_symbols('marketcap', false)) {
+        asset_rank += 1;
+        let asset_data = window.periodic.data[symbol];
+        let asset_metadata = window.periodic.metadata[symbol];
+        let asset_price_change_data = window.periodic.tick_change_data.price[symbol];
+        let asset_reddit_change_data = window.periodic.tick_change_data.reddit[symbol];
+        const market_cap = Number.parseFloat(asset_data.marketcap);
+        const price = Number.parseFloat(asset_data.price);
+        const price_change_1h = Number.parseFloat(asset_price_change_data['1h']);
+        const price_change_24h = Number.parseFloat(asset_price_change_data['24h']);
+        const price_change_7d = Number.parseFloat(asset_price_change_data['7d']);
+        const name = asset_metadata['name'];
+        const subreddit = asset_metadata.subreddit.toLowerCase();
+        const logo = asset_metadata.logo;
 
         const market_cap_diff = (market_cap - selected_asset_market_cap) / selected_asset_market_cap;
         const selected_asset_price_rel = selected_asset_price + (market_cap_diff * selected_asset_price);
@@ -190,13 +157,13 @@ function update_table(data)
         html += '<td class="align-middle text-center">';
         html += '<div class="d-inline-flex flex-row">';
 
-        if (selected_asset_data_index < 0) {
+        if (selected_asset_data === undefined) {
             html += '<div class="p-2" text-right><span class="fs-1-5"></span></div>';
         } else {
             html += `
 <div class="p-2 text-right" style="width:300px">
-<div><span class="fs-1-5">`+selected_asset_name+` (`+selected_asset+`)</span></div>
-<div class="fs-1"><span>Price at #`+counter+`: $`+numberWithCommas(selected_asset_price_rel.toFixed(2))+` USD</span></div>
+<div><span class="fs-1-5">`+selected_asset_name+` (`+selected_asset_symbol+`)</span></div>
+<div class="fs-1"><span>Price at #`+asset_rank+`: $`+numberWithCommas(selected_asset_price_rel.toFixed(2))+` USD</span></div>
 <div class="fs-1"><span>Current price at #`+selected_asset_rank+`: $`+numberWithCommas(selected_asset_price.toFixed(2))+` USD</span></div>
 <div class="fs-0-7"><span>Difference: `+numberWithCommas((market_cap_diff*100).toFixed(0))+`%</span></div>
 </div>
@@ -208,11 +175,11 @@ function update_table(data)
 
         html += `
 
- <div class="pl-4 pr-4" id="`+counter+`">&nbsp;</div>
+ <div class="pl-4 pr-4" id="`+asset_rank+`">&nbsp;</div>
 
  <div class="p-2 text-center d-flex align-items-center">
   <div>
-  <div class="fs-3"><a href="#`+counter+`" class="text-dark text-decoration-none">`+counter+`</a></div>
+  <div class="fs-3"><a href="#`+asset_rank+`" class="text-dark text-decoration-none">`+asset_rank+`</a></div>
   <div class="fs-0-7">RANK</div>
   </div>
  </div>
@@ -228,14 +195,13 @@ function update_table(data)
   <div class="fs-1"><span class="w-100">Market Cap: $`+numberWithCommas((market_cap/1000000000).toFixed(3))+` Billion USD</span></div>
   <div class="fs-1"><span class="w-100">Price: $`+numberWithCommas(price.toFixed(2))+` USD</span></div>
   <div class="fs-0-7"><span class="w-100">1hr: <span class="`+(price_change_1h > 0 ? 'text-success' : (price_change_1h < 0 ? 'text-danger' : 'text-dark'))+`">`+price_change_1h.toFixed(2)+`%</span> | 24hr: <span class="`+(price_change_24h > 0 ? 'text-success' : (price_change_24h < 0 ? 'text-danger' : 'text-dark'))+`">`+price_change_24h.toFixed(2)+`%</span> | 7d: <span class="`+(price_change_7d > 0 ? 'text-success' : (price_change_7d < 0 ? 'text-danger' : 'text-dark'))+`">`+price_change_7d.toFixed(2)+`%</span></span></div>
- </div>
+  </div>
 
 </div>
 </td>`;
 
         html += '</tr>';   // row
 
-        counter += 1;
     }
     html += '</tbody>';
     html += '</table></div>';
