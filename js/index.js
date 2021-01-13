@@ -140,6 +140,7 @@ function update_mc_table()
         let asset_data = window.periodic.data[symbol];
         let asset_metadata = window.periodic.metadata[symbol];
         let asset_price_change_data = window.periodic.tick_change_data.price[symbol];
+        if (asset_price_change_data === undefined) continue;    // skip if tick_change_data did not load; might be an issue on backend TODO
         let asset_reddit_change_data = window.periodic.tick_change_data.reddit[symbol];
         const market_cap = Number.parseFloat(asset_data.marketcap);
         const price = Number.parseFloat(asset_data.price);
