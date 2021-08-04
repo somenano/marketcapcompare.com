@@ -19,6 +19,7 @@ function get_selected_asset()
     const url = new URL(url_string);
     const unsanitized_asset = url.searchParams.get("asset");
     if (unsanitized_asset === null && window.periodic.metadata[window.default_selected_asset]) return window.default_selected_asset;
+    if (unsanitized_asset === null) return 'ETH';
     const sanitized_asset = unsanitized_asset.replace(/[\W_]+/g,"");
     if ((sanitized_asset=='' || sanitized_asset === undefined) && window.periodic.metadata[window.default_selected_asset]) return window.default_selected_asset;
     return sanitized_asset;
