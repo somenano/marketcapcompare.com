@@ -138,6 +138,11 @@ function update_mc_table()
     let asset_rank = 0;
     for (let symbol of get_symbols('marketcap', false)) {
         asset_rank += 1;
+
+        if (typeof(fill_support) !== 'undefined' && (asset_rank-1) % 10 == 5) {
+            html += '<tr><td><div class="support" format="horizontal"></div></td></tr>';
+        }
+
         let asset_data = window.periodic.data[symbol];
         let asset_metadata = window.periodic.metadata[symbol];
         let asset_price_change_data = window.periodic.tick_change_data.price[symbol];
@@ -213,4 +218,6 @@ function update_mc_table()
     html += '</table></div>';
     // $('#data-table').html(html);
     $('#data-container').html(html);
+
+    if (typeof(fill_support) !== 'undefined') fill_support();
 }
